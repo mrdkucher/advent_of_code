@@ -6,16 +6,6 @@ function preprocess_input(input)
     return numbers
 end
 
-struct SevenSegment
-    top::Char
-    top_left::Char
-    top_right::Char
-    middle::Char
-    bottom_left::Char
-    bottom_right::Char
-    bottom::Char
-end
-
 #  Number: SEGMENTS
 #  1         2 *      
 #  2         5  1     
