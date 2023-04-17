@@ -1,7 +1,15 @@
 from typing import List
 import binascii
 
+
+SUM_OP = 0
+PROD_OP = 1
+MIN_OP = 2
+MAX_OP = 3
 LITERAL_VALUE = 4
+GT_OP = 5
+LT_OP = 6
+EQ_OP = 7
 BIT_LENGTH = 0
 PACKET_COUNT = 1
 
@@ -147,6 +155,43 @@ def count_versions(packets: List[Packet]):
     return version_count
 
 
+def evaluate_packets(packets: List[Packet]):
+    value = None
+    for packet in packets:
+        if packet.type == LITERAL_VALUE:
+            return packet.value
+        elif packet.type == SUM_OP:
+            value = 0
+            for sub_packet in packet.subpackets:
+                value += evaluate_packets([sub_packet])
+        elif packet.type == PROD_OP:
+            value = 1
+            for sub_packet in packet.subpackets:
+                value *= evaluate_packets([sub_packet])
+        elif packet.type == MIN_OP:
+            value = float('inf')
+            for sub_packet in packet.subpackets:
+                value = min(value, evaluate_packets([sub_packet]))
+        elif packet.type == MAX_OP:
+            value = float('-inf')
+            for sub_packet in packet.subpackets:
+                value = max(value, evaluate_packets([sub_packet]))
+        elif packet.type in [GT_OP, LT_OP, EQ_OP]:
+            assert len(packet.subpackets) == 2
+            sp1_val = evaluate_packets([packet.subpackets[0]])
+            sp2_val = evaluate_packets([packet.subpackets[1]])
+            if packet.type == GT_OP:
+                value = 1 if sp1_val > sp2_val else 0
+            elif packet.type == LT_OP:
+                value =  1 if sp1_val < sp2_val else 0
+            else:
+                value = 1 if sp1_val == sp2_val else 0
+        else:
+            raise ValueError(f'Unrecognized packet type:', packet.type)
+
+    return value
+
+
 def test_parsers():
     texts = ["D2FE28", "38006F45291200"]
     versions = [6, 1]
@@ -175,6 +220,14 @@ def test():
         packets = parse_packets(bitarray)
         v_sum = count_versions(packets)
         assert v_sum == gold_v_sum, f'Expected {v_sum}, got {gold_v_sum}'
+    
+    texts = ["C200B40A82", "04005AC33890", "880086C3E88112", "CE00C43D881120", "D8005AC2A8F0", "F600BC2D8F", "9C005AC2F8F0", "9C0141080250320F1802104A08"]
+    values = [3, 54, 7, 9, 1, 0, 0, 1]
+    for text, gold_value in zip(texts, values):
+        bitarray = hex2binarray(text)
+        packets = parse_packets(bitarray)
+        value = evaluate_packets(packets)
+        assert value == gold_value
 
 
 if __name__ == "__main__":
@@ -185,3 +238,4 @@ if __name__ == "__main__":
     bitarray = hex2binarray(text)
     packets = parse_packets(bitarray)
     print('VERSION COUNT:', count_versions(packets))
+    print('EVALUATED PACKETS:', evaluate_packets(packets))
